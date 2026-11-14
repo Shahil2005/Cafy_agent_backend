@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+*.bak
+scripts/.env.storage-audit
+node_modules
+dist
+*.log
+.vercel
+
+data/*.xlsx
+data/ireland-source/
+data/ireland-employment-permits-*.csv
+data/backups/
+
+scripts/dev/*.csv
+scripts/dev/.dump/

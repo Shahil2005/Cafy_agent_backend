@@ -1,0 +1,58 @@
+{
+
+
+  
+
+
+  
+
+
+  
+
+  
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.ts",
+      "use": "@vercel/node",
+      
+      
+      "config": {
+        "includeFiles": ["data/**", "email/templates/**", "agent/knowledge/**"]
+      }
+    }
+    
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/server.ts"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/internal/warm-sponsorship?force=true",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/internal/warm-sponsorship?force=true",
+      "schedule": "45 20 * * *"
+    },
+    {
+      "path": "/api/internal/jobs-catalog-synced",
+      "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/internal/email-outbox",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/internal/agent-retention",
+      "schedule": "20 3 * * *"
+    },
+    {
+      "path": "/api/internal/email-campaigns",
+      "schedule": "15 * * * *"
+    }
+  ]
+}

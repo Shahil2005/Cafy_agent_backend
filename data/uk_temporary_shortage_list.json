@@ -1,0 +1,246 @@
+{
+  "document": "Immigration Rules Appendix Skilled Worker, SW 6.1A",
+  "url": "https://www.gov.uk/guidance/immigration-rules/immigration-rules-appendix-skilled-worker",
+  "checkedAt": "2026-11-05",
+  "certificateIssuedBefore": "2026-12-31",
+  "entries": [
+    {
+      "code": "1243",
+      "title": "Managers in logistics"
+    },
+    {
+      "code": "1258",
+      "title": "Directors in consultancy services"
+    },
+    {
+      "code": "3111",
+      "title": "Laboratory technicians"
+    },
+    {
+      "code": "3112",
+      "title": "Electrical and electronics technicians"
+    },
+    {
+      "code": "3113",
+      "title": "Engineering technicians"
+    },
+    {
+      "code": "3114",
+      "title": "Building and civil engineering technicians"
+    },
+    {
+      "code": "3115",
+      "title": "Quality assurance technicians"
+    },
+    {
+      "code": "3116",
+      "title": "Planning, process and production technicians"
+    },
+    {
+      "code": "3120",
+      "title": "CAD, drawing and architectural technicians"
+    },
+    {
+      "code": "3131",
+      "title": "IT operations technicians"
+    },
+    {
+      "code": "3132",
+      "title": "IT user support technicians"
+    },
+    {
+      "code": "3133",
+      "title": "Database administrators and web content technicians"
+    },
+    {
+      "code": "3412",
+      "title": "Authors, writers and translators"
+    },
+    {
+      "code": "3414",
+      "title": "Dancers and choreographers"
+    },
+    {
+      "code": "3417",
+      "title": "Photographers, audio-visual and broadcasting equipment operators"
+    },
+    {
+      "code": "3422",
+      "title": "Clothing, fashion and accessories designers"
+    },
+    {
+      "code": "3429",
+      "title": "Design occupations not elsewhere classified",
+      "onlyJobTypes": [
+        "Industrial and product designers",
+        "Packaging designers",
+        "Performance make-up artists",
+        "Set designers",
+        "Visual merchandising managers and designers"
+      ]
+    },
+    {
+      "code": "3512",
+      "title": "Ship and hovercraft officers"
+    },
+    {
+      "code": "3520",
+      "title": "Legal associate professionals"
+    },
+    {
+      "code": "3532",
+      "title": "Insurance underwriters"
+    },
+    {
+      "code": "3533",
+      "title": "Financial and accounting technicians"
+    },
+    {
+      "code": "3541",
+      "title": "Estimators, valuers and assessors"
+    },
+    {
+      "code": "3544",
+      "title": "Data analysts"
+    },
+    {
+      "code": "3549",
+      "title": "Business associate professionals not elsewhere classified",
+      "onlyJobTypes": [
+        "Business support officers",
+        "Business systems analysts",
+        "Contract administrators",
+        "Clinical coders",
+        "Clinical trials administrators",
+        "Research coordinators"
+      ]
+    },
+    {
+      "code": "3552",
+      "title": "Business sales executives"
+    },
+    {
+      "code": "3554",
+      "title": "Advertising and marketing associate professionals"
+    },
+    {
+      "code": "3571",
+      "title": "Human resources and industrial relations officers"
+    },
+    {
+      "code": "3573",
+      "title": "Information technology trainers"
+    },
+    {
+      "code": "4121",
+      "title": "Credit controllers"
+    },
+    {
+      "code": "4122",
+      "title": "Book-keepers, payroll managers and wages clerks"
+    },
+    {
+      "code": "4129",
+      "title": "Financial administrative occupations not elsewhere classified",
+      "onlyJobTypes": [
+        "Box office assistants",
+        "Grants officers",
+        "Mortgage administrators",
+        "Revenue assistants (excludes National and Local government revenue occupations)",
+        "Treasury assistants"
+      ]
+    },
+    {
+      "code": "4132",
+      "title": "Pensions and insurance clerks and assistants"
+    },
+    {
+      "code": "5213",
+      "title": "Welding trades"
+    },
+    {
+      "code": "5214",
+      "title": "Pipe fitters"
+    },
+    {
+      "code": "5223",
+      "title": "Metal working production and maintenance fitters"
+    },
+    {
+      "code": "5225",
+      "title": "Air-conditioning and refrigeration installers and repairers"
+    },
+    {
+      "code": "5231",
+      "title": "Vehicle technicians, mechanics and electricians"
+    },
+    {
+      "code": "5232",
+      "title": "Vehicle body builders and repairers"
+    },
+    {
+      "code": "5233",
+      "title": "Vehicle paint technicians"
+    },
+    {
+      "code": "5235",
+      "title": "Boat and ship builders and repairers"
+    },
+    {
+      "code": "5241",
+      "title": "Electricians and electrical fitters"
+    },
+    {
+      "code": "5242",
+      "title": "Telecoms and related network installers and repairers"
+    },
+    {
+      "code": "5244",
+      "title": "Computer system and equipment installers and servicers"
+    },
+    {
+      "code": "5245",
+      "title": "Security system installers and repairers"
+    },
+    {
+      "code": "5249",
+      "title": "Electrical and electronic trades not elsewhere classified"
+    },
+    {
+      "code": "5311",
+      "title": "Steel erectors"
+    },
+    {
+      "code": "5315",
+      "title": "Plumbers and heating and ventilating installers and repairers"
+    },
+    {
+      "code": "5319",
+      "title": "Construction and building trades not elsewhere classified",
+      "onlyJobTypes": [
+        "Builders",
+        "Divers",
+        "Fence erectors",
+        "Industrial climbers",
+        "Remotely Operated Vehicle (ROV) operators",
+        "Steel fixers and underpinners"
+      ]
+    },
+    {
+      "code": "5322",
+      "title": "Floorers and wall tilers"
+    },
+    {
+      "code": "5323",
+      "title": "Painters and decorators"
+    },
+    {
+      "code": "5330",
+      "title": "Construction and building trades supervisors"
+    },
+    {
+      "code": "8133",
+      "title": "Energy plant operatives"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sorry to see you go, {{first_name}}</title>
+</head>
+<body style="margin:0;padding:0;background:#ffffff;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+    <tr>
+      <td align="center" style="padding:28px 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="width:560px;max-width:560px;">
+          <tr>
+            <td style="padding:0 0 20px;">
+              <img src="https://www.cafy.careers/company-logo.png" alt="Cafy" width="110" style="display:block;width:110px;height:auto;border:0;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="font-family:Georgia,'Times New Roman',serif;font-size:16px;line-height:26px;color:#1a1a1a;">
+              <p style="margin:0 0 16px;">Hi {{first_name}},</p>
+              <p style="margin:0 0 16px;">Your Cafy Premium subscription has ended. We would like to know why you cancelled, so we can improve Cafy.</p>
+              <p style="margin:0 0 8px;">Choose the closest reason. One click sends your feedback:</p>
+              <p style="margin:0 0 16px;">
+                <a href="https://cafy.careers/feedback?reason=found_job&amp;user_id={{user_id}}&amp;email={{email}}" style="color:#1a1a1a;">I found a job</a><br>
+                <a href="https://cafy.careers/feedback?reason=price&amp;user_id={{user_id}}&amp;email={{email}}" style="color:#1a1a1a;">The price was too high</a><br>
+                <a href="https://cafy.careers/feedback?reason=missing_features&amp;user_id={{user_id}}&amp;email={{email}}" style="color:#1a1a1a;">Missing features I needed</a><br>
+                <a href="https://cafy.careers/feedback?reason=taking_break&amp;user_id={{user_id}}&amp;email={{email}}" style="color:#1a1a1a;">I'm taking a break</a><br>
+                <a href="https://cafy.careers/feedback?reason=other&amp;user_id={{user_id}}&amp;email={{email}}" style="color:#1a1a1a;">Other</a>
+              </p>
+              <p style="margin:0 0 16px;">If you want to add a note, write it here: <a href="https://cafy.careers/feedback?user_id={{user_id}}&amp;email={{email}}" style="color:#1a1a1a;">Share feedback</a></p>
+              <p style="margin:0 0 16px;">Team Cafy</p>
+              <p style="margin:0;font-size:13px;line-height:20px;color:#555;">You received this because you previously had Cafy Premium. <a href="{{unsubscribe_url}}" style="color:#555;">Unsubscribe</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

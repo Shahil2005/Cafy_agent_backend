@@ -1,0 +1,59 @@
+name: Update Workers CSV Daily
+
+on:
+  schedule:
+    # Runs every day at 8:15 PM IST (14:45 UTC)
+    - cron: "45 14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-csv:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout backend repo
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      # 2. Fetch latest CSV URL from stable GOV.UK dataset page
+      - name: Fetch latest CSV URL
+        id: fetch-url
+        run: |
+          PAGE_URL="https://www.gov.uk/government/publications/register-of-licensed-sponsors-workers"
+
+          CSV_URL=$(curl -s "$PAGE_URL" \
+            | grep -oE 'https://assets\.publishing\.service\.gov\.uk[^"]+\.csv' \
+            | head -n 1)
+
+          if [ -z "$CSV_URL" ]; then
+            echo "❌ CSV URL not found. GOV.UK may be down or page structure changed."
+            exit 1
+          fi
+
+          echo "csv_url=$CSV_URL" >> $GITHUB_OUTPUT
+          echo "✅ Found CSV URL: $CSV_URL"
+
+      # 3. Download latest CSV into the data folder (repo root = ProductBackend/)
+      - name: Download latest workers CSV
+        run: |
+          curl -L "${{ steps.fetch-url.outputs.csv_url }}" \
+            -o data/workers.csv
+
+      # 4. Check if file actually changed (skip commit if GOV.UK re-published same data)
+      - name: Check if file changed
+        id: git-check
+        run: |
+          git diff --quiet data/workers.csv && git ls-files --error-unmatch data/workers.csv 2>/dev/null || echo "changed=true" >> $GITHUB_OUTPUT
+
+      # 5. Commit & push only if changed — Vercel redeploys automatically, bundling the new CSV
+      - name: Commit & push if changed
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/workers.csv
+          git commit -m "chore: auto-update workers.csv"
+          git push

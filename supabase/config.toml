@@ -1,0 +1,7 @@
+# Minimal config for deploying the embed-match Edge Function to the RESUME Supabase project
+# (the one holding uk_soc_occupations / uk_soc_occupations_gte).
+# Set project_id via `supabase link --project-ref <ref>` rather than hardcoding it here.
+
+[functions.embed-match]
+# ProductBackend authenticates with the SOC_EMBED_SECRET header, not a user JWT.
+verify_jwt = false

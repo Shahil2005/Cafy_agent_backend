@@ -1,0 +1,27 @@
+# Files Vercel does not upload when deploying the backend.
+# Keep data/, email/templates/ and agent/knowledge/: the server reads them at runtime (see vercel.json includeFiles).
+
+# Secrets and local env copies (set real values in Vercel > Settings > Environment Variables)
+.env
+.env.*
+!.env.example
+*.bak
+
+# Local build output, dependencies and logs (Vercel installs and builds itself)
+node_modules
+dist
+.vercel
+*.log
+
+# Developer-only: one-off scripts, SQL migrations, CI config and tests (never imported by server.ts)
+scripts/
+supabase/
+.github/
+**/*.test.ts
+nodemon.json
+
+# Large local data files that are not used at runtime
+data/backups/
+data/ireland-source/
+data/*.xlsx
+data/ireland-employment-permits-*.csv
