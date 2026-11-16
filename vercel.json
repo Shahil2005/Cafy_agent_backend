@@ -44,7 +44,7 @@
     },
     {
       "path": "/api/internal/email-outbox",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/internal/agent-retention",
@@ -52,7 +52,7 @@
     },
     {
       "path": "/api/internal/email-campaigns",
-      "schedule": "15 * * * *"
+      "schedule": "15 6 * * *"
     }
   ]
 }
