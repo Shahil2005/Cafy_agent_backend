@@ -1110,6 +1110,11 @@ app.post('/api/storage/sign-url', verifyToken, async (req: Request, res: Respons
         const signedUrl = await storageService.getSignedUrl(path);
         res.json({ signedUrl });
     } catch (error) {
+        // File record exists but the object was removed from storage: report it as missing,
+        // so the client shows "file could not be found" instead of a generic server error.
+        if (/not.?found/i.test(String((error as any)?.message ?? ''))) {
+            return res.status(404).json({ error: 'File not found' });
+        }
         console.error('Error generating signed URL:', error);
         res.status(500).json({ error: 'Failed to generate signed URL' });
     }
