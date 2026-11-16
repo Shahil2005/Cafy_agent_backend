@@ -115,6 +115,10 @@ const productionOrigins = [
     'https://resume.cafy.careers',
     'https://cafy.careers',
     'https://www.cafy.careers',
+    // Vercel deployment of the Product Site (production + branch/project aliases)
+    'https://cafy-agent-frontend.vercel.app',
+    'https://cafy-agent-frontend-shahil2005s-projects.vercel.app',
+    'https://cafy-agent-frontend-git-main-shahil2005s-projects.vercel.app',
 ];
 
 // Explicit local browser origins for the existing apps and Vite previews.
