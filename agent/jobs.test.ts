@@ -6,7 +6,7 @@ import { isAboutOwnCv, isJobsForMe } from './cvIntent';
 import { titleFitsCode, bestFirst, bestTitleMatches, hardGapIn, levelGap, levelTitles, ownTitleFirst, pickPage, createJobExplainer, cvKeywords, cvTitlePhrases, displaySalary, jobSearchSettingsSchema, jobVerdict, jobVisaFacts, realGaps, searchJobs, type JobDetail, type JobSearchDeps, type RankRequest } from './jobs/search';
 import { nextJobLists } from './jobs/lists';
 import { uiPieceSchema } from './contract';
-import { cardsOnlyText, asksToWrite, withSupport, withoutGuessedPay, withoutUnverifiedFigures, describesListedJob, repeatsLastAnswer, withoutBracketedCodes, withoutLicenceYes, withoutOverclaim, withoutPromise } from './agent';
+import { cardsOnlyText, asksToWrite, withMoneyHelp, withSupport,withoutGuessedPay, withoutUnverifiedFigures, describesListedJob, repeatsLastAnswer, withoutBracketedCodes, withoutLicenceYes, withoutOverclaim, withoutPromise } from './agent';
 import { asksAboutSoc, forcedToolCalls } from './routing';
 import { createJobTools, searchSettings } from './tools/jobs';
 
@@ -657,6 +657,14 @@ test('someone in despair always sees where to get help; ordinary wording does no
     assert.equal(withSupport('Fine.', 'I cannot go on Tuesday'), 'Fine.', 'needs the words together');
 });
 
+test('asking which investment to buy always names MoneyHelper; career questions about finance do not', () => {
+    for (const m of ['Which crypto coin should I buy right now?', 'what stocks should i invest in', 'best shares to buy this year', 'should I invest in bitcoin', 'which ETF is good for beginners'])
+        assert.match(withMoneyHelp('I cannot pick investments.', m), /MoneyHelper/, m);
+    assert.equal(withMoneyHelp('See MoneyHelper.', 'which crypto should I buy'), 'See MoneyHelper.', 'not added twice');
+    for (const m of ['What is a good investment banking graduate scheme?', 'which stock controller jobs are in Leeds', 'best investment analyst roles in London', 'How do I prepare for a hedge fund interview?', 'What is a credit score?'])
+        assert.equal(withMoneyHelp('Fine.', m), 'Fine.', m);
+});
+
 test('a remembered pay figure is dropped; one from a tool or the message stays', () => {
     const answer = (text: string) => ({ text, pieces: [], suggestions: [] });
     const guess = withoutGuessedPay(answer('It varies. Many start at £25,000 to £35,000. Ask me for jobs.'), 'how much do analysts earn', 'how much do analysts earn');
@@ -739,7 +747,9 @@ test('official-data hints still run first; job understanding is left to the AI',
     assert.deepEqual(forcedToolCalls('What is the new entrant threshold for a nurse?', can).find((c) => c.name === 'soc_lookup')?.args, { query: 'nurse' });
     assert.deepEqual(forcedToolCalls('give me 2 jobs', can, { hasCv: true }), [], 'no word rule and no CV profile');
     assert.deepEqual(forcedToolCalls('compare me with job 1', can, { hasCv: true }), []);
-    for (const m of ['is 8 pounds an hour legal', 'my employer isnt paying me', 'i was fired for being pregnant', 'what is a new entrant']) assert.ok(forcedToolCalls(m, can).some((c) => c.name === 'gov_uk_guidance'), m);
+    for (const m of ['is 8 pounds an hour legal', 'my employer isnt paying me', 'i was fired for being pregnant', 'what is a new entrant', 'can I bring my wife on my visa', 'my boss treated me unfairly because I am pregnant', 'can I switch from student to graduate route', 'was I unfairly dismissed at work']) assert.ok(forcedToolCalls(m, can).some((c) => c.name === 'gov_uk_guidance'), m);
+    // Everyday wording that only sounds like a GOV.UK topic does not fetch official pages.
+    for (const m of ['how do i make my wife happy on her birthday', 'should I switch to Python from Java', 'help me settle an argument with my flatmate', 'is this exam marking unfair', 'remove redundant code from this function', 'im tired cos i didnt sleep']) assert.ok(!forcedToolCalls(m, can).some((c) => c.name === 'gov_uk_guidance'), m);
     assert.equal(withoutBracketedCodes('Transport managers (2134) and developers (1243), not (9999).', [{ kind: 'socCards', card: { options: [{ code: '2134' }, { code: '1243' }] } } as never]), 'Transport managers and developers, not (9999).');
     assert.equal((await searchJobs({ role: 'jobs' }, { cv: null, years: null, signal }, fakeDeps())).status, 'need_cv_or_role', 'the word jobs names no role');
     const nursing = await run({ role: 'nursing' }, fakeDeps({ details: async (ids) => ids.map((id) => job(id, { title: 'Staff Nurse' })) }));

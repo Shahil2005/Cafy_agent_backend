@@ -5,18 +5,24 @@ export type GateResult =
     | { allowed: false; reason: string; message: string };
 
 /**
- * Runs before any AI call. Hard blocks are enforced here (injection, fabrication, off-topic,
- * abuse); everything else goes to the agent, which understands any wording instead of the old
- * pattern router.
- *
- * Questions about the user's own visa or legal situation ("Can I switch to a Skilled Worker
- * visa?") are NOT blocked: the shared policy blocks them for the old chat, but the agent answers
- * them from GOV.UK passages with a caution, and never gives a personal verdict.
+ * Reasons the shared policy blocks that the agent answers itself instead:
+ * - personal_legal_determination: answered from GOV.UK passages with a caution, never a personal verdict.
+ * - off_topic_request: general questions (a fact, maths, a short poem, a cooking tip, a health or money
+ *   question) are answered briefly by the agent, within the limits in its prompt (no live data, no diagnosis,
+ *   no investment picks, no assessed work written for them).
+ * - abuse: a frustrated user gets a calm reply and another try, not a canned scope message.
+ */
+const ANSWERED_BY_AGENT = new Set(['off_topic_request', 'abuse']);
+
+/**
+ * Runs before any AI call. Hard blocks stay here (prompt injection, secret or prompt disclosure,
+ * fabricated applications); everything else goes to the agent, which understands any wording.
  */
 export function gateMessage(message: string): GateResult {
     const decision = reviewJobChatMessage(message);
     if (decision.decision === 'blocked') {
         if (decision.reason === 'personal_legal_determination') return { allowed: true, caution: 'personal_legal' };
+        if (ANSWERED_BY_AGENT.has(decision.reason)) return { allowed: true };
         return { allowed: false, reason: decision.reason, message: decision.message };
     }
     return { allowed: true };

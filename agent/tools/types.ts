@@ -20,6 +20,8 @@ export interface ToolContext {
     lastJobs?: JobListCard;
     /** Recent job lists, newest first (the first is lastJobs). */
     jobLists?: JobListCard[];
+    /** A tailored CV ("/cv") on the user's screen, with the template it uses. */
+    tailoredCv?: { template: string };
     /** Shows a UI block next to the answer. A block id already shown is ignored, unless `replace` updates it in place. */
     emit(id: string, block: AgentBlock, options?: { replace?: boolean }): void;
 }

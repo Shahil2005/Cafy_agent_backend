@@ -5,6 +5,7 @@ import { SPONSOR_TOOLS } from './sponsors';
 import { KNOWLEDGE_TOOLS } from './knowledge';
 import { JOB_TOOLS } from './jobs';
 import { INSIGHT_TOOLS } from './insights';
+import { CV_TEMPLATE_TOOL } from './cvTemplate';
 import { defineTool, type AgentTool } from './types';
 
 export { defineTool, type AgentTool, type ToolContext } from './types';
@@ -24,7 +25,7 @@ const ukDateTool = defineTool({
     },
 });
 
-export const AGENT_TOOLS: AgentTool[] = [ukDateTool, ...CV_TOOLS, ...UK_TOOLS, ...SPONSOR_TOOLS, ...KNOWLEDGE_TOOLS, ...JOB_TOOLS, ...INSIGHT_TOOLS];
+export const AGENT_TOOLS: AgentTool[] = [ukDateTool, ...CV_TOOLS, ...UK_TOOLS, ...SPONSOR_TOOLS, ...KNOWLEDGE_TOOLS, ...JOB_TOOLS, ...INSIGHT_TOOLS, CV_TEMPLATE_TOOL];
 
 export function findTool(name: string, tools: AgentTool[] = AGENT_TOOLS): AgentTool | undefined {
     return tools.find((tool) => tool.name === name);

@@ -21,6 +21,7 @@ import type { AgentEventSink } from './sse';
 import { textDeltas } from './sse';
 import { AGENT_TOOLS, findTool, type AgentTool } from './tools';
 import { CV_TOOLS, cvProfileCard } from './tools/cv';
+import { CV_TEMPLATE_CATALOGUE, CV_TEMPLATE_TOOL } from './tools/cvTemplate';
 import { isAboutOwnCv, isCvSummaryRequest } from './cvIntent';
 import { asksInterviewQuestion, interviewNote, interviewState } from './interview';
 import { splitPastedAdvert } from './jobs/jobDescription';
@@ -108,6 +109,8 @@ export interface AgentRunInput {
     caution?: 'personal_legal';
     /** Recent job lists in this conversation, newest first, for follow-ups. */
     jobLists?: JobListCard[];
+    /** A tailored CV ("/cv") on the user's screen, so its template can be changed from the chat. */
+    tailoredCv?: { template: string };
 }
 
 /**
@@ -285,6 +288,18 @@ export function withSupport(text: string, message: string): string {
     return `${text} If things feel too much, you do not have to face this alone: Samaritans are on **116 123**, free, day or night, or call **999** if you are in danger.`;
 }
 
+/** Asking which investment to buy. The prompt handles any wording; this only guarantees the signpost for the common ones. */
+const PICKS_INVESTMENT =
+    /\b(?:which|what|best|good|should i (?:buy|invest)|recommend)\b[^.?!]{0,40}\b(?:shares?|stocks?|crypto\w*|coins?|bitcoin|tokens?|funds?|etfs?|invest\w*)\b/i;
+
+/** Someone asking which investment to buy always sees where free, regulated guidance is. */
+const CAREER_MONEY_WORDS = /\b(?:jobs?|roles?|careers?|cv|intern\w*|graduate|banking|bankers?|analysts?|traders?|interview\w*|employers?|vacanc\w*|controller|assistant)\b/i;
+
+export function withMoneyHelp(text: string, message: string): string {
+    if (!PICKS_INVESTMENT.test(message) || CAREER_MONEY_WORDS.test(message) || /moneyhelper/i.test(text)) return text;
+    return `${text} For free, impartial guidance on your options and how to find a regulated financial adviser, see **MoneyHelper** (moneyhelper.org.uk), which is backed by the government.`;
+}
+
 const ANY_POUNDS = /£\s?(\d[\d,]*)(?:\.\d+)?\s?(k\b)?/gi;
 const ASKS_PAY = /\b(?:earn|earns|earning|earnings|salary|salaries|paid|pay|wage|wages)\b/i;
 
@@ -371,7 +386,8 @@ export async function runAgent(
     const generate = deps.generate ?? executeAiGeneration;
     const allTools = deps.tools ?? AGENT_TOOLS;
     // Without a CV the CV tools are hidden, so general questions are answered instead of asking for a CV.
-    const tools = input.cv ? allTools : allTools.filter((tool) => !CV_TOOL_NAMES.has(tool.name));
+    // The template tool exists only while a tailored CV is on screen; otherwise the prompt says to use /cv first.
+    const tools = allTools.filter((tool) => (input.cv || !CV_TOOL_NAMES.has(tool.name)) && (input.tailoredCv || tool.name !== CV_TEMPLATE_TOOL.name));
     const systemPrompt = buildSystemPrompt(tools);
     const toolResults: Array<{ name: string; ok: boolean; result?: unknown; error?: string }> = [];
     let toldToReadJob = false;
@@ -398,6 +414,9 @@ export async function runAgent(
     const needsCv = !cv && isAboutOwnCv(asked);
     const showCvCard = isCvSummaryRequest(asked);
     const cvMatcher = cv ? new CvTextMatcher(cv.text) : null;
+    const tailoredCvContext = input.tailoredCv
+        ? { template: CV_TEMPLATE_CATALOGUE.find((t) => t.id === input.tailoredCv!.template)?.name ?? input.tailoredCv.template }
+        : undefined;
     // A tool given up on may still finish later; what it shows then would arrive after the answer.
     let finished = false;
     const emit = (id: string, block: AgentBlock, options: { replace?: boolean } = {}) => {
@@ -441,6 +460,7 @@ export async function runAgent(
                             toolResults,
                             mustAnswer,
                             needsCv,
+                            tailoredCv: tailoredCvContext,
                             shownCards: [...new Set([...blocks.values()].map((b) => b.kind).filter((k) => k !== 'answerCard' && k !== 'cvPicker'))],
                             caution: input.caution,
                             ...(interview ? { interview: interviewNote(interview) } : {}),
@@ -540,7 +560,7 @@ export async function runAgent(
         if (parsed.answer && (!parsed.toolCalls?.length || mustAnswer)) {
             const cleaned = cleanAnswer(JSON.parse(withoutDateStatus(JSON.stringify(parsed.answer))) as typeof parsed.answer, (text) => Boolean(cvMatcher?.contains(text)));
             const answer = withoutGuessedPay(withoutUnverifiedFigures(
-                { ...cleaned, text: withNoPromise(withRemoteNote(withSupport(withoutLicenceYes(withoutPromise(withoutOverclaim(withoutBracketedCodes(cleaned.text, [...blocks.values()]), JSON.stringify(toolResults))), asked), asked), toolResults), asked), pieces: withoutCardRepeats(cleaned.pieces, [...blocks.values()]) },
+                { ...cleaned, text: withMoneyHelp(withNoPromise(withRemoteNote(withSupport(withoutLicenceYes(withoutPromise(withoutOverclaim(withoutBracketedCodes(cleaned.text, [...blocks.values()]), JSON.stringify(toolResults))), asked), asked), toolResults), asked), asked), pieces: withoutCardRepeats(cleaned.pieces, [...blocks.values()]) },
                 `${input.message} ${JSON.stringify(toolResults)}`,
                 [...blocks.values()].some((b) => b.kind === 'socCards' || b.kind === 'officialFacts'),
             ), asked, `${input.message} ${JSON.stringify(toolResults)}`);
@@ -559,7 +579,9 @@ export async function runAgent(
             if (writing) sink.send({ type: 'status', id: 'write', label: 'Writing your answer', state: 'done' });
             for (const delta of textDeltas(answer.text)) sink.send({ type: 'text', delta });
             if (answer.pieces.length) emit('answer', { kind: 'answerCard', pieces: answer.pieces });
-            if (needsCv || (!cv && ASKS_FOR_CV.test(answer.text))) emit('cv-picker', { kind: 'cvPicker' });
+            // A request about the tailored CV's look is not a question about the user's CV: no picker.
+            const changedTemplate = toolsUsed.includes(CV_TEMPLATE_TOOL.name);
+            if (!changedTemplate && (needsCv || (!cv && ASKS_FOR_CV.test(answer.text)))) emit('cv-picker', { kind: 'cvPicker' });
             if (answer.suggestions.length) sink.send({ type: 'suggestions', items: answer.suggestions });
             return done(answer, step);
         }
@@ -632,7 +654,7 @@ export async function runAgent(
             toolsUsed.push(call.name);
             sink.send({ type: 'status', id, label: tool.label(args.data), state: 'running' });
             try {
-                const running = tool.run(args.data, { uid: input.uid, signal, cv, emit, showCvCard, userMessage: asked, ...(pasted ? { advert: pasted.advert } : {}), lastJobs: jobListsNow()[0], jobLists: jobListsNow() });
+                const running = tool.run(args.data, { uid: input.uid, signal, cv, emit, showCvCard, userMessage: asked, ...(input.tailoredCv ? { tailoredCv: input.tailoredCv } : {}), ...(pasted ? { advert: pasted.advert } : {}), lastJobs: jobListsNow()[0], jobLists: jobListsNow() });
                 // A tool given up on may still fail later; that failure is no longer anyone's to handle.
                 running.catch(() => undefined);
                 const timeLeft = input.deadlineAt === undefined ? undefined : input.deadlineAt - Date.now() - TOOL_RESERVE_MS;

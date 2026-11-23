@@ -45,6 +45,10 @@ function check(c: EvalCase, run: { blocked: boolean; text: string; blocks: Agent
     for (const tool of e.noTools ?? []) if (run.tools.includes(tool)) failures.push(`tool ${tool} should not run`);
     for (const kind of e.blocks ?? []) if (!kinds.has(kind)) failures.push(`card ${kind} missing`);
     for (const kind of e.noBlocks ?? []) if (kinds.has(kind)) failures.push(`card ${kind} should not show`);
+    if (e.templates) {
+        const chosen = run.blocks.flatMap((b) => (b.kind === 'cvTemplate' ? [b.template] : []));
+        if (!chosen.some((t) => e.templates!.includes(t))) failures.push(`template should be ${e.templates.join(' or ')}, got ${chosen.join(', ') || 'none'}`);
+    }
     for (const pattern of e.text ?? []) if (!pattern.test(output)) failures.push(`missing ${pattern}`);
     for (const pattern of e.notText ?? []) {
         const hit = pattern.exec(output);
@@ -61,7 +65,7 @@ async function runCase(c: EvalCase, cv: CvIndex): Promise<Outcome> {
     const events: AgentEvent[] = [];
     const signal = AbortSignal.timeout(50_000);
     const run = await runAgent(
-        { uid: 'eval', message: c.message, history: [], cv: c.cv ? cv : null, deadlineAt: Date.now() + 50_000, caution: gate.caution },
+        { uid: 'eval', message: c.message, history: [], cv: c.cv ? cv : null, deadlineAt: Date.now() + 50_000, caution: gate.caution, ...(c.tailoredCv ? { tailoredCv: { template: c.tailoredCv } } : {}) },
         { send: (e) => events.push(e), closed: false },
         signal,
     );

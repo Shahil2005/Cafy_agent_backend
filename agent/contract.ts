@@ -33,6 +33,8 @@ export const agentTurnRequestSchema = z.object({
             sourceId: z.string().regex(/^[A-Za-z0-9_-]{1,128}$/).optional(),
         })
         .optional(),
+    /** A tailored CV ("/cv") is on the user's screen in this template, so its look can be changed from the chat. */
+    tailoredCv: z.object({ template: z.string().regex(/^[a-z-]{2,24}$/) }).optional(),
 });
 
 export type AgentTurnRequest = z.infer<typeof agentTurnRequestSchema>;
@@ -263,7 +265,9 @@ export type AgentBlock =
     | { kind: 'jobCompare'; card: JobCompareCard }
     | { kind: 'skillGaps'; card: SkillGapCard }
     /** Asks the user to choose one of their saved profile CVs. */
-    | { kind: 'cvPicker' };
+    | { kind: 'cvPicker' }
+    /** Switches the tailored CV on screen to this template (applied in the browser; no AI writes the CV again). */
+    | { kind: 'cvTemplate'; template: string; name: string };
 
 // ---- CV tailoring ("/cv"): stateless, nothing is stored on the server ----
 

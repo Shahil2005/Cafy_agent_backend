@@ -8,20 +8,29 @@ import { isAboutOwnCv, isCvSummaryRequest, isJobsForMe } from './cvIntent';
 const GOV_UK_TOPICS = new RegExp(
     [
         // Visas and immigration rules
-        'visa', 'switch(?:ing)? (?:to|from)', 'dependants?', 'my partner', 'bring my (?:family|children|spouse)', 'settle(?:ment)?', 'indefinite leave', '\\bilr\\b',
-        'certificate of sponsorship', '\\bcos\\b', 'sponsor licen[cs]e', 'english (?:language )?requirement', 'immigration health surcharge', '\\bihs\\b', 'biometric', '\\bbrp\\b', 'e-?visa',
-        'right to work', 'share code', 'new entrant', 'visa fees?', 'how much (?:are|is) (?:the |it )?(?:fees?|cost)', 'application fees?', 'overstay', '\\b(?:my )?(?:wife|husband|spouse)\\b',
+        'visa', 'dependants?', 'settlement', 'indefinite leave', '\\bilr\\b',
+        'certificate of sponsorship', 'sponsor licen[cs]e', 'english (?:language )?requirement', 'immigration health surcharge', '\\bihs\\b', 'biometric', '\\bbrp\\b', 'e-?visa',
+        'right to work', 'share code', 'new entrant', 'visa fees?', 'how much (?:are|is) (?:the |it )?(?:fees?|cost)', 'application fees?', 'overstay',
         // Work rights
-        'minimum wage', 'living wage', 'holidays? (?:pay|entitlement|allowance)', 'holiday am i', 'how much holiday', 'annual leave', 'bank holidays?', 'sick pay', '\\bssp\\b', 'maternity', 'paternity', 'notice period', 'redundan', 'dismiss',
-        'unfair', 'discriminat', 'not paying', "isn'?t paying", 'unpaid (?:wages|pay)', 'fired', 'sacked', 'pregnan', '(?:pounds?|£\\s?\\d+(?:\\.\\d+)?) (?:an|per) hour', 'working hours', 'zero[- ]hours', 'employment contract', 'payslip', 'grievance', 'whistleblow', 'trade union',
+        'minimum wage', 'living wage', 'holidays? (?:pay|entitlement|allowance)', 'holiday am i', 'how much holiday', 'annual leave', 'bank holidays?', 'sick pay', '\\bssp\\b', 'maternity', 'paternity', 'notice period', 'redundancy', 'made redundant', 'unfair(?:ly)? dismiss', 'dismissed',
+        'discriminat', 'not paying', "isn'?t paying", 'unpaid (?:wages|pay)', 'fired', 'sacked', '(?:pounds?|£\\s?\\d+(?:\\.\\d+)?) (?:an|per) hour', 'working hours', 'zero[- ]hours', 'employment contract', 'payslip', 'grievance', 'whistleblow', 'trade union',
         // Starting work, tax and money
         'national insurance', '\\bni number\\b', 'tax code', '\\bp45\\b', '\\bp60\\b', '\\bpaye\\b', 'income tax', 'student loan', 'apprentice',
     ].join('|'),
     'i',
 );
 
+/**
+ * Words that mean a GOV.UK topic only in a work or immigration setting: "switching to Python",
+ * "settle an argument", "unfair exam", "my wife's birthday", "cos" (because) are everyday questions.
+ */
+const GOV_UK_AMBIGUOUS =
+    /\bswitch(?:ing)? (?:to|from)\b|\bmy partner\b|\bbring my (?:family|children|spouse)\b|\bsettle\b|\bcos\b|\b(?:wife|husband|spouse)\b|\bunfair\b|\bpregnan|\bredundant\b|\bdismiss/i;
+const WORK_OR_IMMIGRATION =
+    /\b(?:visas?|immigra\w*|uk|britain|home office|ukvi|sponsor\w*|dependants?|skilled worker|graduate route|student route|right to work|work(?:ing|s|ed)?|jobs?|employ\w*|boss|manager|contract|pay|paid|wages?|salary|maternity|leave|tribunal|hr|acas)\b/i;
+
 export function needsGovUkGuidance(message: string): boolean {
-    return GOV_UK_TOPICS.test(message);
+    return GOV_UK_TOPICS.test(message) || (GOV_UK_AMBIGUOUS.test(message) && WORK_OR_IMMIGRATION.test(message));
 }
 
 export interface ForcedCall {

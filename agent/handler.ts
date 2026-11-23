@@ -170,7 +170,7 @@ export function createAgentTurnHandler(deps: HandlerDeps = {}) {
         let outcome = 'failed';
 
         try {
-            const { message, conversationId, cv: pickedCv, regenerate } = input.data;
+            const { message, conversationId, cv: pickedCv, regenerate, tailoredCv } = input.data;
             const gate = gateMessage(message);
             if (!gate.allowed) {
                 sink.send({ type: 'text', delta: gate.message });
@@ -240,6 +240,7 @@ export function createAgentTurnHandler(deps: HandlerDeps = {}) {
                           deadlineAt,
                           caution: gate.caution,
                           jobLists: recentJobLists(conversation),
+                          ...(tailoredCv ? { tailoredCv } : {}),
                       },
                       sink,
                       caller.signal,
