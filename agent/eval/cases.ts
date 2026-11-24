@@ -16,6 +16,9 @@ export interface EvalExpect {
     noTools?: string[];
     blocks?: BlockKind[];
     noBlocks?: BlockKind[];
+    /** Answer-card piece types that must (or must not) be in the answer, e.g. 'choices'. */
+    pieces?: string[];
+    noPieces?: string[];
     /** Every pattern must match the answer (text plus answer-card pieces). */
     text?: RegExp[];
     notText?: RegExp[];
@@ -344,4 +347,12 @@ export const EVAL_CASES: EvalCase[] = [
     everyday('gk-11', 'How do I register with a GP as an international student?', { text: [/GP/] }),
     everyday('gk-12', "you're useless", { maxChars: 600, notText: [/I can help with finding jobs, CVs, applications and interviews/] }),
     everyday('gk-13', 'how do i make my wife happy on her birthday', { noTools: ['gov_uk_guidance'] }),
+
+    // Clickable choices: offered when the answer asks the user to pick, never in place of doing the task.
+    { id: 'ui-01', message: 'Can you help me with my application?', expect: { pieces: ['choices'], noBlocks: ['cvPicker'] } },
+    { id: 'ui-02', message: 'I want to change careers but I am not sure which field to go into', expect: { pieces: ['choices'] } },
+    { id: 'ui-03', message: 'can u help me get a job', expect: { pieces: ['choices'] } },
+    { id: 'ui-04', message: 'Interview me for a data analyst role', expect: { noPieces: ['choices'], text: [/question 1/i] } },
+    { id: 'ui-05', message: 'What is the STAR method?', expect: { noPieces: ['choices'] } },
+    { id: 'ui-06', message: 'Write a cover letter for a marketing role at Tesco', expect: { noPieces: ['choices'], text: [/Dear/i] } },
 ];

@@ -67,6 +67,8 @@ const modelStepSchema = z.object({
         .object({
             text: z.string().trim().min(1).transform((t) => cutAtSentence(t)),
             ui: z.array(z.unknown()).default([]).transform((ui) => ui.slice(0, 12)),
+            /** Clickable answers to the question "text" asks, if it asks one; becomes a choices piece. */
+            choices: z.unknown().optional(),
             suggestions: z.array(z.unknown()).default([]).transform((s) => s.slice(0, 8)),
         })
         .optional(),
@@ -118,17 +120,22 @@ export interface AgentRunInput {
  * CV quotes survive only if the words really are in the user's CV.
  */
 export function cleanAnswer(
-    raw: { text: string; ui: unknown[]; suggestions: unknown[] },
+    raw: { text: string; ui: unknown[]; choices?: unknown; suggestions: unknown[] },
     quoteIsInCv: (text: string) => boolean = () => false,
 ): AgentAnswer {
-    const pieces = raw.ui.flatMap((piece) => {
+    // The answer's own "choices" field (a question back to the user) joins the pieces as a choices piece.
+    const choiceField = raw.choices && typeof raw.choices === 'object' ? (Array.isArray(raw.choices) ? { type: 'choices', options: raw.choices } : { type: 'choices', ...raw.choices }) : null;
+    const pieces = [...raw.ui, ...(choiceField ? [choiceField] : [])].flatMap((piece) => {
         const parsed = uiPieceSchema.safeParse(coercePiece(piece));
         if (!parsed.success) return [];
         if (parsed.data.type === 'quote' && !quoteIsInCv(parsed.data.text)) return [];
         if ((parsed.data.type === 'paragraph' || parsed.data.type === 'heading') && repeats(parsed.data.text, raw.text)) return [];
         return [parsed.data];
     });
-    const seen = new Set<string>();
+    // One set of choices, after everything it asks about; follow-ups that only repeat an option are dropped.
+    const choices = pieces.find((piece) => piece.type === 'choices');
+    if (choices) pieces.splice(0, pieces.length, ...pieces.filter((piece) => piece.type !== 'choices'), choices);
+    const seen = new Set<string>(choices?.type === 'choices' ? choices.options.map((o) => o.toLowerCase()) : []);
     const suggestions = raw.suggestions.flatMap((item) => {
         const parsed = suggestionSchema.safeParse(item);
         if (!parsed.success) return [];

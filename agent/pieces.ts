@@ -31,6 +31,10 @@ const TYPE_ALIASES: Record<string, string> = {
     do_dont: 'doDont',
     stats: 'facts',
     keyfacts: 'facts',
+    choice: 'choices',
+    quickreplies: 'choices',
+    quick_replies: 'choices',
+    buttons: 'choices',
 };
 
 function obj(value: unknown): value is Record<string, unknown> {
@@ -116,6 +120,16 @@ export function coercePiece(raw: unknown): unknown {
     }
     if (type === 'example') {
         if (!str(piece.text)) piece.text = str(piece.content) ?? str(piece.example) ?? str(piece.body);
+        return piece;
+    }
+    if (type === 'choices') {
+        const options = Array.isArray(piece.options) ? piece.options : Array.isArray(piece.items) ? piece.items : [];
+        // Options may come back as {"label"} objects; duplicates are dropped.
+        piece.options = [...new Set(options.map((o) => (obj(o) ? titleOf(o) ?? bodyOf(o) : str(o))).filter((o): o is string => Boolean(o)))];
+        if (!str(piece.question)) piece.question = str(piece.text) ?? str(piece.title);
+        delete piece.items;
+        delete piece.text;
+        delete piece.title;
         return piece;
     }
     return piece;

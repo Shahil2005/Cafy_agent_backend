@@ -79,6 +79,15 @@ export const uiPieceSchema = z.discriminatedUnion('type', [
             .min(1)
             .max(6),
     }),
+    /**
+     * Clickable answers to a question the answer asks the user ("Which job do you mean?"). Each option is sent
+     * as the user's reply when clicked, so it is written the way the user would answer. The app adds "Other".
+     */
+    z.object({
+        type: z.literal('choices'),
+        question: z.string().trim().min(1).max(160).optional(),
+        options: z.array(z.string().trim().min(1).max(80)).min(2).max(6),
+    }),
 ]);
 
 export type UiPiece = z.infer<typeof uiPieceSchema>;

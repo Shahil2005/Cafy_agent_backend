@@ -45,6 +45,9 @@ function check(c: EvalCase, run: { blocked: boolean; text: string; blocks: Agent
     for (const tool of e.noTools ?? []) if (run.tools.includes(tool)) failures.push(`tool ${tool} should not run`);
     for (const kind of e.blocks ?? []) if (!kinds.has(kind)) failures.push(`card ${kind} missing`);
     for (const kind of e.noBlocks ?? []) if (kinds.has(kind)) failures.push(`card ${kind} should not show`);
+    const pieceTypes = new Set<string>(run.blocks.flatMap((b) => (b.kind === 'answerCard' ? b.pieces.map((p) => p.type) : [])));
+    for (const type of e.pieces ?? []) if (!pieceTypes.has(type)) failures.push(`answer piece ${type} missing`);
+    for (const type of e.noPieces ?? []) if (pieceTypes.has(type)) failures.push(`answer piece ${type} should not show`);
     if (e.templates) {
         const chosen = run.blocks.flatMap((b) => (b.kind === 'cvTemplate' ? [b.template] : []));
         if (!chosen.some((t) => e.templates!.includes(t))) failures.push(`template should be ${e.templates.join(' or ')}, got ${chosen.join(', ') || 'none'}`);

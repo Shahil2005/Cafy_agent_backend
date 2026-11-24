@@ -231,6 +231,22 @@ test('an aborted turn stops before calling the model', async () => {
     assert.equal(prompts.length, 0);
 });
 
+test('choices: repaired, kept once and last, and not repeated as follow-ups', () => {
+    const out = cleanAnswer({
+        text: 'Which job do you mean?',
+        ui: [
+            { type: 'quick_replies', text: 'Which job?', items: [{ label: 'Job 1 at Barclays' }, 'Job 2 at Thales', 'Job 2 at Thales'] },
+            { type: 'tips', items: ['Check the advert'] },
+            { type: 'choices', options: ['A', 'B'] },
+        ],
+        suggestions: ['Job 1 at Barclays', 'Show more jobs'],
+    });
+    assert.deepEqual(out.pieces.map((p) => p.type), ['tips', 'choices']);
+    assert.deepEqual(out.pieces[1], { type: 'choices', question: 'Which job?', options: ['Job 1 at Barclays', 'Job 2 at Thales'] });
+    assert.deepEqual(out.suggestions, ['Show more jobs']);
+    assert.equal(cleanAnswer({ text: 't', ui: [{ type: 'choices', options: ['Only one'] }], suggestions: [] }).pieces.length, 0, 'one option is not a choice');
+});
+
 test('cleanAnswer caps suggestions at four', () => {
     const out = cleanAnswer({ text: 't', ui: [], suggestions: ['aa', 'bb', 'cc', 'dd', 'ee'] });
     assert.equal(out.suggestions.length, 4);
