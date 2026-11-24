@@ -1,9 +1,10 @@
-import { createClient } from '@supabase/supabase-js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { executeAiGeneration } from '../../ai/orchestrator';
-import { createChatCatalogueReadOnlyFetch } from '../../jobs-portal/chatCatalogue';
 import type { JobListCard } from '../contract';
+import { embedTexts } from '../cv/embed';
+import { agentJobsClient, agentJobsDb } from './db';
+import { passesFilters, rankByReading, type CandidateJob, type CandidateLoader } from './readOnlyRank';
 import { CvTextMatcher } from '../cv/profile';
 import type { CvIndex } from '../cv';
 import { firstJsonObject } from '../json';
@@ -114,6 +115,9 @@ export interface JobSearchDeps {
 }
 
 export interface RankRequest {
+    /** Job-title phrases for the role searched (from the request or the CV's own job titles). Used only by the
+     *  read-only ranking (readOnlyRank.ts) to choose candidates; the database ranking scores every job instead. */
+    titles?: string[];
     query: Array<{ v: string; w: number }>;
     keywords: string[];
     cvYears: number | null;
@@ -224,6 +228,31 @@ export type JobSearchOutcome =
 const SLOW_RANK_MS = 22_000;
 
 /** "full-stack developer jobs" as title phrases: "full-stack developer", "full stack developer". */
+/**
+ * The CV's roles as job-title phrases for choosing candidates: its own job titles, including one-word ones
+ * ("Chef", "Nurse"), except words too vague to name a job ("Manager", "Assistant"). None for someone changing career.
+ */
+export function cvRolePhrases(cv: CvIndex): string[] {
+    const own = cvTitlePhrases(cv).filter((phrase) => phrase.includes(' ') || !GENERIC_TITLE_WORDS.has(phrase));
+    return [...new Set([...own, ...cvFallbackPhrases(cv)])];
+}
+
+/** The usual ways a role is written in job titles: "fullstack", "full stack" and "full-stack"; developer and engineer. */
+export function titleVariants(phrases: string[]): string[] {
+    const out = new Set<string>();
+    for (const phrase of phrases) {
+        const base = phrase.toLowerCase().replace(/\s+/g, ' ').trim();
+        if (base.length < 3) continue;
+        const spellings = /full[ -]?stack/.test(base) ? ['fullstack', 'full stack', 'full-stack'].map((v) => base.replace(/full[ -]?stack/, v)) : [base];
+        for (const s of spellings) {
+            out.add(s);
+            if (/\bdeveloper\b/.test(s)) out.add(s.replace(/\bdeveloper\b/, 'engineer'));
+            else if (/\bengineer\b/.test(s)) out.add(s.replace(/\bengineer\b/, 'developer'));
+        }
+    }
+    return [...out].slice(0, 12);
+}
+
 export function rolePhrases(role: string): string[] {
     const base = role.toLowerCase().replace(/[^a-z0-9 &'-]+/g, ' ').replace(/\b(?:jobs?|roles?|positions?|vacanc(?:y|ies)|opportunit(?:y|ies)|work)\b/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
     if (base.length < 3) return [];
@@ -551,6 +580,7 @@ export async function searchJobs(
     const shared = advert && cv ? sharedKeywords(cvKeywords(cv), advert) : [];
 
     const request: RankRequest = {
+        titles: titleVariants(advert || !fromCv ? (settings.role ? rolePhrases(settings.role) : []) : cvRolePhrases(cv!)),
         query,
         keywords: shared.length ? shared : settings.role ? roleWords(settings.role) : cv ? cvKeywords(cv) : [],
         cvYears: cv ? context.years : null,
@@ -764,11 +794,86 @@ export function createJobExplainer(generate: typeof executeAiGeneration = execut
 }
 
 function readClient(signal: AbortSignal) {
-    const url = process.env.SUPABASE_URL?.trim();
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!url || !key) throw new Error('Jobs database is not configured');
-    return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: createChatCatalogueReadOnlyFetch({ signal, profile: 'career-matching' }) } });
+    return agentJobsClient(signal, 'career-matching');
 }
+
+/** Rows read for the in-backend ranking; adverts are long, so this stays well under the 8 MB read limit. */
+const CANDIDATE_ROWS = 250;
+const CANDIDATE_COLUMNS = 'id, title, description, department, location, all_locations, salary, job_type, company_id, created_at, sponsorship_outcome';
+/** Keeps the characters skills are written with ("node.js", "c++", "c#"); drops those that would break a filter. */
+const plainTerm = (text: string) => text.toLowerCase().replace(/[^a-z0-9 +#&'.-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+/** The advert-text scan reads every advert, so it looks for only a few words to stay inside the read time limit. */
+const ADVERT_SCAN_TERMS = 3;
+
+/** Enough usable jobs from the indexed searches: the slow scan of every advert's text is skipped. */
+const ENOUGH_CANDIDATES = 60;
+/** Full-text words: websearch syntax reads a leading "-" as NOT, so only letters, digits and spaces are kept. */
+const ftsTerm = (term: string) => term.replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * Candidate jobs for rankByReading, with SELECTs only, newest first:
+ * 1. Indexed, together: the title has a search word (trigram index) or the title, department or sector does
+ *    (search_vector full-text index, so "nurse" also finds "nursing").
+ * 2. Only when those give too few usable jobs (CV skills such as "python" often appear only in the advert):
+ *    adverts whose text has a search word. This scans every advert, so it is kept for when it is needed.
+ * With no words (a place or job type alone), the newest jobs. Filters a query can express narrow the rows here;
+ * readOnlyRank.ts checks every filter again exactly.
+ */
+export const candidatesFromDatabase: CandidateLoader = async (terms, filters, signal, titles = []) => {
+    const db = readClient(signal);
+    const narrowed = () => {
+        let query = db.from('jobs').select(CANDIDATE_COLUMNS);
+        const loc = filters.location ? plainTerm(filters.location) : '';
+        // A generic location ("United Kingdom") may name the town only in the advert: those stay in.
+        if (loc.length >= 2) query = query.or(`location.ilike.%${loc}%,location.ilike.united kingdom,location.ilike.uk,location.ilike.england,location.ilike.scotland,location.ilike.wales,location.is.null`);
+        if (filters.remote) query = query.or('location.ilike.%remote%,description.ilike.%remote%,description.ilike.%from home%,description.ilike.%home-based%,description.ilike.%home based%');
+        if (filters.hybrid) query = query.or('location.ilike.%hybrid%,description.ilike.%hybrid%');
+        if (filters.job_types?.length) query = query.in('job_type', filters.job_types);
+        if (filters.company_ids?.length) query = query.in('company_id', filters.company_ids);
+        if (filters.visa) query = query.or('sponsorship_outcome.is.null,sponsorship_outcome.neq.not_eligible');
+        if (filters.posted_within_days) query = query.gte('created_at', new Date(Date.now() - filters.posted_within_days * 86_400_000).toISOString());
+        if (filters.exclude_job_ids?.length && filters.exclude_job_ids.length <= 200) query = query.not('id', 'in', `(${filters.exclude_job_ids.join(',')})`);
+        return query;
+    };
+    const read = async (query: ReturnType<typeof narrowed>): Promise<CandidateJob[]> => {
+        const { data, error } = await query.order('created_at', { ascending: false }).limit(CANDIDATE_ROWS);
+        if (error || !data) throw new Error('Job candidates are unavailable');
+        return (data as unknown as Array<CandidateJob & { id: number | string; company_id?: number | string | null }>)
+            .map((job) => ({ ...job, id: Number(job.id), company_id: job.company_id == null ? null : Number(job.company_id) }))
+            .filter((job) => Number.isFinite(job.id) && Boolean(job.title));
+    };
+    const words = terms.map(plainTerm).filter((t) => t.length >= 3);
+    // The role decides which jobs are read: a skill such as "Java" in a title must not stand in for the role.
+    const roles = titles.map(plainTerm).filter((t) => t.length >= 3);
+    const inTitle = roles.length ? roles : words;
+    if (!inTitle.length) return read(narrowed());
+    // A failed extra search only loses its extra jobs; the title matches still answer.
+    const orNothing = (error: unknown): CandidateJob[] => {
+        if (signal.aborted) throw error;
+        return [];
+    };
+    // With a role, only the role fetches jobs; skills just order them (a hobby "Java" course must not bring in Java jobs).
+    const fts = [...new Set((roles.length ? roles : words).map(ftsTerm).filter(Boolean))].map((t) => (t.includes(' ') ? `"${t}"` : t)).join(' or ');
+    const [byTitle, byTopic] = await Promise.all([
+        read(narrowed().or(inTitle.map((t) => `title.ilike.%${t}%`).join(','))),
+        fts ? read(narrowed().textSearch('search_vector', fts, { type: 'websearch', config: 'english' })).catch(orNothing) : Promise.resolve([]),
+    ]);
+    const found = [...new Map([...byTitle, ...byTopic].map((job) => [job.id, job])).values()];
+    // Skills only: the role titles were already looked for in titles.
+    const scan = words.filter((w) => !roles.some((r) => w.includes(r) || r.includes(w))).slice(0, ADVERT_SCAN_TERMS);
+    if (!scan.length || found.filter((job) => passesFilters(job, filters, Date.now())).length >= ENOUGH_CANDIDATES) return found;
+    const byAdvert = await read(narrowed().or(scan.map((t) => `description.ilike.%${t}%`).join(','))).catch(orNothing);
+    return [...found, ...byAdvert];
+};
+
+/** Embedding the shortlist normally takes a few seconds; past this the ranking uses keywords alone. */
+const READ_RANK_EMBED_MS = 15_000;
+
+const embedWithin = (texts: string[]) =>
+    Promise.race([
+        embedTexts(texts),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Embedding took too long')), READ_RANK_EMBED_MS).unref?.()),
+    ]);
 
 /**
  * The fast ranking (supabase/testing/agent_match_jobs_fast.sql) shortlists jobs from a compact copy of every
@@ -785,9 +890,11 @@ let fastRankOffUntil = 0;
 const rankRowsValid = (value: unknown): value is RankedJob[] => Array.isArray(value) && value.every((row) => typeof row === 'object' && row !== null && 'job_id' in row);
 
 async function callRanking(name: 'agent_match_jobs' | 'agent_match_jobs_fast', body: Record<string, unknown>, signal: AbortSignal, timeoutMs: number): Promise<RankedJob[]> {
-    const url = process.env.SUPABASE_URL?.trim();
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!url || !key) throw new Error('Jobs database is not configured');
+    const db = agentJobsDb();
+    if (!db) throw new Error('Jobs database is not configured');
+    // A read-only database (live) is never sent a function call: its ranking runs in this backend.
+    if (db.readOnly) throw new Error('Database ranking is not used on a read-only database');
+    const { url, key } = db;
     const stop = new AbortController();
     const onAbort = () => stop.abort();
     signal.addEventListener('abort', onAbort, { once: true });
@@ -810,7 +917,10 @@ async function callRanking(name: 'agent_match_jobs' | 'agent_match_jobs_fast', b
 /** Calls the ranking function; it only reads. The SELECT-only transport cannot be used because RPC calls are POST requests. */
 export const rankWithDatabase: JobSearchDeps['rank'] = async (request, signal) =>
     // Shared by every server instance for a few minutes: "more", a retry or the same search again answer at once.
-    cached(cacheKey('rank', request), RANK_CACHE_MS / 1000, async () => {
+    // The database is part of the key: job ids from the testing copy mean nothing on live.
+    cached(cacheKey('rank', { db: agentJobsDb()?.url ?? '', request }), RANK_CACHE_MS / 1000, async () => {
+        // Live is read-only: the same ranking, worked out here from SELECTs (readOnlyRank.ts).
+        if (agentJobsDb()?.readOnly) return rankByReading(request, signal, { load: candidatesFromDatabase, embed: embedWithin });
         const body = { p_query: request.query, p_keywords: request.keywords, p_cv_years: request.cvYears, p_filters: request.filters, p_limit: request.limit };
         const started = Date.now();
         if (process.env.AGENT_FAST_RANK?.trim() === '1' && Date.now() >= fastRankOffUntil) {

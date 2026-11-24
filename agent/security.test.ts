@@ -325,6 +325,9 @@ test('agent code only writes inside its own folders and never writes to Supabase
         // The user's resumes are read (to clean up deleted CVs), never written.
         for (const line of code.split('\n').filter((l) => l.includes("collection('resumes')"))) assert.doesNotMatch(line, /\.(set|update|delete|add)\(/, file);
         assert.doesNotMatch(code, /\.(insert|upsert|rpc)\(/, `${file} must not write to Supabase`);
-        if (/\.from\('/.test(code)) assert.match(code, /createChatCatalogueReadOnlyFetch/, `${file} must use the read-only Supabase transport`);
+        // Directly, or through agentJobsClient (jobs/db.ts), which is built on it.
+        if (/\.from\('/.test(code)) assert.match(code, /createChatCatalogueReadOnlyFetch|agentJobsClient\(/, `${file} must use the read-only Supabase transport`);
     }
+    const db = readFileSync(join(__dirname, 'jobs', 'db.ts'), 'utf8');
+    assert.match(db, /global: \{ fetch: createChatCatalogueReadOnlyFetch\(/, 'agentJobsClient must use the read-only transport');
 });

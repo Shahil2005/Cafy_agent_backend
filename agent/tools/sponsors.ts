@@ -1,6 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { createChatCatalogueReadOnlyFetch } from '../../jobs-portal/chatCatalogue';
+import { agentJobsClient, agentJobsDb } from '../jobs/db';
 import { listUkSponsorshipRegister } from '../../jobs-portal/service';
 import type { SponsorListCard } from '../contract';
 import { cleanName, closestOption, coreName, matchName, splitTradingName, type MatchTier } from '../sponsors/match';
@@ -36,14 +35,9 @@ function rating(typeRating: string): 'A' | 'B' | undefined {
 
 /** CAFY companies table lookup through the SELECT-only catalogue transport; failures just mean no aliases. */
 const companiesAliasLookup: AliasLookup = async (name, signal) => {
-    const url = process.env.SUPABASE_URL?.trim();
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
     const safe = cleanName(name).slice(0, 60);
-    if (!url || !key || safe.length < 3) return [];
-    const db = createClient(url, key, {
-        auth: { persistSession: false, autoRefreshToken: false },
-        global: { fetch: createChatCatalogueReadOnlyFetch({ signal }) },
-    });
+    if (!agentJobsDb() || safe.length < 3) return [];
+    const db = agentJobsClient(signal);
     const { data, error } = await db
         .from('companies')
         .select('trading_name, companies_house_name')

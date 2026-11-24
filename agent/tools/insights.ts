@@ -1,6 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
-import { createChatCatalogueReadOnlyFetch } from '../../jobs-portal/chatCatalogue';
+import { agentJobsClient } from '../jobs/db';
 import type { JobListCard, UiPiece } from '../contract';
 import type { CvIndex } from '../cv';
 import { CvTextMatcher } from '../cv/profile';
@@ -16,11 +15,8 @@ export type PayLoader = (role: string, location: string | undefined, signal: Abo
 const PAY_ROWS = 400;
 
 export const payFromDatabase: PayLoader = async (role, location, signal) => {
-    const url = process.env.SUPABASE_URL?.trim();
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!url || !key) throw new Error('Jobs database is not configured');
     const clean = (value: string) => value.toLowerCase().replace(/[^a-z0-9 &'-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
-    const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: createChatCatalogueReadOnlyFetch({ signal }) } });
+    const db = agentJobsClient(signal);
     let query = db.from('jobs').select('salary').ilike('title', `%${clean(role)}%`).not('salary', 'is', null);
     if (location && clean(location)) query = query.ilike('location', `%${clean(location)}%`);
     const { data, error } = await query.order('created_at', { ascending: false }).limit(PAY_ROWS);
@@ -39,11 +35,8 @@ export interface PaidAdvert {
 export type PaidAdvertLoader = (role: string, signal: AbortSignal) => Promise<PaidAdvert[]>;
 
 export const paidAdvertsFromDatabase: PaidAdvertLoader = async (role, signal) => {
-    const url = process.env.SUPABASE_URL?.trim();
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-    if (!url || !key) throw new Error('Jobs database is not configured');
     const clean = role.toLowerCase().replace(/[^a-z0-9 &'-]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
-    const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: createChatCatalogueReadOnlyFetch({ signal }) } });
+    const db = agentJobsClient(signal);
     const { data, error } = await db.from('jobs').select('id, title, salary, company_id').ilike('title', `%${clean}%`).not('salary', 'is', null).order('created_at', { ascending: false }).limit(PAY_ROWS);
     if (error || !data) throw new Error('Pay data is unavailable');
     return (data as Array<{ id: number | string; title?: string | null; salary?: string | null; company_id?: number | string | null }>).flatMap((row) =>
